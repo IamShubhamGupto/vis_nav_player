@@ -1,6 +1,9 @@
 from vis_nav_game import Player, Action
 import pygame
 import cv2
+import redis
+import struct
+import numpy as np
 
 
 class KeyboardPlayerPyGame(Player):
@@ -9,6 +12,7 @@ class KeyboardPlayerPyGame(Player):
         self.last_act = Action.IDLE
         self.screen = None
         self.keymap = None
+        self.redis_stream = redis.Redis(host='localhost', port=6379, db=0)
         super(KeyboardPlayerPyGame, self).__init__()
 
     def reset(self):
@@ -99,12 +103,25 @@ class KeyboardPlayerPyGame(Player):
             pygame_image = pygame.image.frombuffer(opencv_image.tobytes(), shape, 'RGB')
 
             return pygame_image
-
+        
+        
+        
         pygame.display.set_caption("KeyboardPlayer:fpv")
+        print(np.shape(fpv))
+        self.toRedis(self.redis_stream, fpv , 'curr_frame')
         rgb = convert_opencv_img_to_pygame(fpv)
         self.screen.blit(rgb, (0, 0))
         pygame.display.update()
 
+    def toRedis(self,r, a, n):
+            # Store given Numpy array 'a' in Redis under key 'n'
+            h, w = a.shape[:2]
+            shape = struct.pack('>II',h,w)
+            encoded = shape + a.tobytes()
+
+            # Store encoded data in Redis
+            r.set(n,encoded)
+            return
 
 if __name__ == "__main__":
     import vis_nav_game
