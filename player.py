@@ -1,6 +1,32 @@
 from vis_nav_game import Player, Action
 import pygame
 import cv2
+import redis
+import struct
+
+import numpy as np
+
+class RedisImageStream:
+    def __init__(self, channel_name, host:str= 'localhost', port:int= 6379, db:int= 0) -> None:
+        self.channel_name = channel_name
+        self.redis = redis.StrictRedis(host=host, port=port, db=db)
+        self.pubsub = self.redis.pubsub()
+
+    def stream_images(self):
+        # print(f"Subscribing to {self.channel_name}...")
+        # self.pubsub.subscribe(self.channel_name)
+        # for message in self.pubsub.listen():
+        #     if message['type'] == 'message':
+        #         image_data = message['data']
+        #         # Here, you can process the image data as per your requirements.
+        #         # You might want to display the image or save it to a file.
+        return
+        
+
+    def publish_image(self, image_data: np.ndarray) -> None:
+        print(f"Publishing an image to {self.channel_name}...")
+        image_bytes = cv2.imencode('.png', image_data)[1].tobytes()
+        self.redis.set(self.channel_name, image_bytes)
 
 
 class KeyboardPlayerPyGame(Player):
@@ -9,6 +35,7 @@ class KeyboardPlayerPyGame(Player):
         self.last_act = Action.IDLE
         self.screen = None
         self.keymap = None
+        self.redis = RedisImageStream('vis_nav_game')
         super(KeyboardPlayerPyGame, self).__init__()
 
     def reset(self):
@@ -104,6 +131,9 @@ class KeyboardPlayerPyGame(Player):
         rgb = convert_opencv_img_to_pygame(fpv)
         self.screen.blit(rgb, (0, 0))
         pygame.display.update()
+        # stream game image
+        self.redis.publish_image(fpv)
+
 
 
 if __name__ == "__main__":
